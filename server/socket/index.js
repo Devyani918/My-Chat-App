@@ -179,7 +179,7 @@ function setupSocket(server) {
       methods: ['GET', 'POST'],
       credentials: true,
     },
-    transports: ['polling', 'websocket'],
+    transports: ['websocket'],
   });
 
   io.on('connection', async (socket) => {

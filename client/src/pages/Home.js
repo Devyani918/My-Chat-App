@@ -149,7 +149,7 @@ const Home = () => {
       auth: {
         token: localStorage.getItem('token'),
       },
-      transports: ['polling', 'websocket'], // Enable both polling and websocket
+      transports: ['websocket'], // Enable both polling and websocket
       withCredentials: true,
     });
 
