@@ -199,25 +199,29 @@ import React, { useEffect } from 'react';
 import axios from 'axios';
 import { useDispatch, useSelector } from 'react-redux';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'; 
-import { logout, setOnlineUser, setSocketConnection, setUser } from '../redux/userSlice';
+import { logout, setOnlineUser, setSocketConnection, setUser, setSocketConnecting, setSocketConnected } from '../redux/userSlice';
 import Sidebar from '../components/Sidebar';
 import logo from '../assets/logo.png';
-import { io } from 'socket.io-client'; // better import
+import io from 'socket.io-client';
 
 const Home = () => {  
-  const user = useSelector(state => state.user);
+  const { socketConnecting, socketConnected } = useSelector(state => state.user);
   const dispatch = useDispatch();
   const navigate = useNavigate(); 
   const location = useLocation();
   
-  console.log('user', user);
+  console.log('user', useSelector(state => state.user));
 
+  // Fetch user details from backend
   const fetchUserDetails = async () => {
     try {
       const URL = `${process.env.REACT_APP_BACKEND_URL}/api/user-details`;
-      const response = await axios.get(URL, { withCredentials: true });
+      const response = await axios({
+        url: URL,
+        withCredentials: true,
+      });
 
-      if (response.data?.data) {
+      if (response.data && response.data.data) {
         dispatch(setUser(response.data.data));
 
         if (response.data.data.logout) {
@@ -225,13 +229,13 @@ const Home = () => {
           navigate("/email");
         }
 
-        console.log("Current user details", response.data.data);
+        console.log("current user Details", response);
       } else {
-        console.warn("User data missing, redirecting to login...");
+        console.log("User data is missing or invalid.");
         navigate("/login");
       }
     } catch (error) {
-      console.error("Error fetching user details:", error);
+      console.log("Error fetching user details:", error);
       navigate("/login");
     }
   };
@@ -242,20 +246,35 @@ const Home = () => {
   
   // Socket connection setup
   useEffect(() => {
+    dispatch(setSocketConnecting(true)); // Start connecting
+
     const socketConnection = io(process.env.REACT_APP_BACKEND_URL, {
       auth: {
         token: localStorage.getItem('token'),
       },
-      transports: ['websocket'], // 👈 force only websocket
-      withCredentials: true,     // 👈 ensure cookies are sent
+      transports: ['polling', 'websocket'], // 👈 Enable both
+      withCredentials: true,
     });
 
     socketConnection.on('connect', () => {
-      console.log('Socket connected:', socketConnection.id);
+      console.log('Socket connected');
+      dispatch(setSocketConnected(true));
+      dispatch(setSocketConnecting(false));
+    });
+
+    socketConnection.on('disconnect', () => {
+      console.log('Socket disconnected');
+      dispatch(setSocketConnected(false));
+      dispatch(setSocketConnecting(true));
+    });
+
+    socketConnection.on('connect_error', (error) => {
+      console.log('Socket connection error:', error);
+      dispatch(setSocketConnected(false));
+      dispatch(setSocketConnecting(true));
     });
 
     socketConnection.on('onlineUser', (data) => {
-      console.log('Online Users:', data);
       dispatch(setOnlineUser(data)); 
     });
 
@@ -263,14 +282,23 @@ const Home = () => {
 
     return () => {
       socketConnection.disconnect();
-      console.log('Socket disconnected');
     };
-  }, []);
+  }, [dispatch]);
   
   const basePath = location.pathname === '/';
   
   return (
-    <div className="grid lg:grid-cols-[300px,1fr] h-screen max-h-screen">
+    <div className='grid lg:grid-cols-[300px,1fr] h-screen max-h-screen'>
+      
+      {/* Show connecting spinner */}
+      {socketConnecting && !socketConnected && (
+        <div className="fixed inset-0 bg-white/70 flex flex-col items-center justify-center z-50">
+          <img src={logo} alt="logo" width={100} className="animate-spin" />
+          <p className="mt-4 text-slate-700 font-semibold text-lg">Connecting...</p>
+        </div>
+      )}
+
+      {/* Sidebar */}
       <section className={`bg-white ${!basePath && "hidden"} lg:block`}>
         <Sidebar />
       </section>
@@ -280,16 +308,20 @@ const Home = () => {
         <Outlet /> 
       </section>
 
-      {/* Logo and text for the home page */}
+      {/* Logo and Text for Home */}
       <div className={`justify-center items-center flex-col gap-3 hidden ${!basePath ? "hidden" : "lg:flex"}`}>
         <div>
-          <img src={logo} width={250} alt="logo" />
+          <img
+            src={logo}
+            width={250}
+            alt='logo'
+          />
         </div>
-        <p className="text-lg mt-2 text-slate-500">Select a user to send a message</p>
+        <p className='text-lg mt-2 text-slate-500'>Select user to send message</p>
       </div>
+
     </div>
   );
 };
                        
 export default Home;
-

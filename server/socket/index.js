@@ -174,27 +174,28 @@ const getConversation = require('../helpers/getConversation');
 const app = express();
 const server = http.createServer(app);
 
+// Create socket.io server
 const io = new Server(server, {
   cors: {
     origin: process.env.FRONTEND_URL || '*',
     methods: ['GET', 'POST'],
     credentials: true,
   },
-  transports: ['websocket'], // 👈 Force only WebSocket
+  transports: ['polling', 'websocket'], // Allow both polling and websocket
 });
 
 // Online users
 const onlineUser = new Set();
 
 io.on('connection', async (socket) => {
-  console.log('User connected:', socket.id);
+  console.log('🔵 New user connected:', socket.id);
 
   try {
     const token = socket.handshake.auth.token;
     const user = await getUserDetailsFromToken(token);
 
     if (!user) {
-      console.log('Invalid user token. Disconnecting...');
+      console.log('Invalid token. Disconnecting...');
       socket.disconnect();
       return;
     }
@@ -207,7 +208,7 @@ io.on('connection', async (socket) => {
 
     // Load user data when message page opens
     socket.on('message-page', async (userId) => {
-      console.log('Message page opened for userId:', userId);
+      console.log('Message page opened for:', userId);
 
       const userDetails = await UserModel.findById(userId).select('-password');
       const payload = {
@@ -219,7 +220,6 @@ io.on('connection', async (socket) => {
       };
       socket.emit('message-user', payload);
 
-      // Load previous messages
       const conversation = await ConversationModel.findOne({
         $or: [
           { sender: userIdStr, receiver: userId },
@@ -230,7 +230,7 @@ io.on('connection', async (socket) => {
       socket.emit('message', conversation?.messages || []);
     });
 
-    // Handle new message
+    // Handle sending new message
     socket.on('new message', async (data) => {
       let conversation = await ConversationModel.findOne({
         $or: [
@@ -265,10 +265,11 @@ io.on('connection', async (socket) => {
         ],
       }).populate('messages').sort({ updatedAt: -1 });
 
+      // Send updated messages to sender and receiver
       io.to(data?.sender).emit('message', updatedConversation?.messages || []);
       io.to(data?.receiver).emit('message', updatedConversation?.messages || []);
 
-      // Update conversation sidebar
+      // Update sidebar
       const conversationSender = await getConversation(data?.sender);
       const conversationReceiver = await getConversation(data?.receiver);
 
@@ -279,6 +280,7 @@ io.on('connection', async (socket) => {
     // Sidebar conversations
     socket.on('sidebar', async (currentUserId) => {
       console.log('Sidebar requested by:', currentUserId);
+
       const conversation = await getConversation(currentUserId);
       socket.emit('conversation', conversation);
     });
@@ -308,9 +310,9 @@ io.on('connection', async (socket) => {
 
     // Handle disconnection
     socket.on('disconnect', () => {
+      console.log('User disconnected:', socket.id);
       onlineUser.delete(userIdStr);
       io.emit('onlineUser', Array.from(onlineUser));
-      console.log('User disconnected:', socket.id);
     });
 
   } catch (error) {
@@ -320,4 +322,3 @@ io.on('connection', async (socket) => {
 });
 
 module.exports = { app, server };
-
