@@ -239,7 +239,7 @@ const Home = () => {
       navigate("/login");
     }
   };
-  
+
   useEffect(() => {
     fetchUserDetails();
   }, []);
@@ -252,20 +252,20 @@ const Home = () => {
       auth: {
         token: localStorage.getItem('token'),
       },
-      transports: ['polling', 'websocket'], // 👈 Enable both
+      transports: ['polling', 'websocket'], // Enable both polling and websocket
       withCredentials: true,
     });
 
     socketConnection.on('connect', () => {
       console.log('Socket connected');
-      dispatch(setSocketConnected(true));
-      dispatch(setSocketConnecting(false));
+      dispatch(setSocketConnected(true));  // Update state when connected
+      dispatch(setSocketConnecting(false));  // Stop connecting state
     });
 
     socketConnection.on('disconnect', () => {
       console.log('Socket disconnected');
-      dispatch(setSocketConnected(false));
-      dispatch(setSocketConnecting(true));
+      dispatch(setSocketConnected(false));  // Set socket as disconnected
+      dispatch(setSocketConnecting(true));  // Set connecting state again
     });
 
     socketConnection.on('connect_error', (error) => {
@@ -281,12 +281,12 @@ const Home = () => {
     dispatch(setSocketConnection(socketConnection));
 
     return () => {
-      socketConnection.disconnect();
+      socketConnection.disconnect();  // Cleanup on component unmount
     };
   }, [dispatch]);
   
   const basePath = location.pathname === '/';
-  
+
   return (
     <div className='grid lg:grid-cols-[300px,1fr] h-screen max-h-screen'>
       
@@ -323,5 +323,5 @@ const Home = () => {
     </div>
   );
 };
-                       
+
 export default Home;

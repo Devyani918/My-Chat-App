@@ -74,7 +74,7 @@ export const userSlice = createSlice({
     setToken: (state, action) => {
       state.token = action.payload;
     },
-    logout: (state, action) => {
+    logout: (state) => {
       state._id = "";
       state.name = "";
       state.email = "";
@@ -91,17 +91,12 @@ export const userSlice = createSlice({
     setSocketConnecting: (state, action) => {
       state.socketConnecting = action.payload;  // To manage the socket connection status
     },
+    setSocketConnected: (state, action) => {
+      state.socketConnected = action.payload;  // To manage the socket connection status
+    },
   },
 });
 
-// Export action creators
-export const {
-  setUser,
-  setToken,
-  logout,
-  setOnlineUser,
-  setSocketConnection,
-  setSocketConnecting,  // Export the new action
-} = userSlice.actions;
+export const { setUser, setToken, logout, setOnlineUser, setSocketConnection, setSocketConnecting, setSocketConnected } = userSlice.actions;
 
 export default userSlice.reducer;
